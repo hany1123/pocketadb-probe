@@ -24,7 +24,9 @@ jobs:
           set -e
           export THEOS="$HOME/theos"
           make clean || true
-          make package FINALPACKAGE=1
+          make
+          # 裸 dylib 注入不需要 filter plist / deb，直接取编译产物
+          ls -la .theos/obj/
           cp .theos/obj/PocketADBProbe.dylib out/PocketADBProbe_raw.dylib
 
       - name: Sanitize + sign + verify
