@@ -142,10 +142,11 @@ static id PDBFindStoreInstance(Class cls) {
 
 static void PDBProbe(void) {
     NSMutableString *out = [NSMutableString stringWithString:@"=== PocketADB entitlement probe ===\n"];
+    NSString *ver = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
+    NSString *build = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"?";
     [out appendFormat:@"bundle=%@ ver=%@ build=%@\n",
         PDBEscape([[NSBundle mainBundle].bundleIdentifier description]),
-        PDBEscape([[NSBundle mainBundle].objectForInfoDictionaryKey(@"CFBundleShortVersionString") description]),
-        PDBEscape([[NSBundle mainBundle].objectForInfoDictionaryKey(@"CFBundleVersion") description])];
+        PDBEscape(ver), PDBEscape(build)];
     [out appendFormat:@"app=%@\n", NSStringFromClass([[UIApplication sharedApplication] class])];
 
     Class storeCls = Nil;
