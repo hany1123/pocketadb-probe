@@ -1,0 +1,8 @@
+Package: com.hany.pocketadb.probe
+Name: PocketADBProbe
+Version: 0.0.1
+Architecture: iphoneos-arm
+Description: Read-only entitlement probe for PocketADB (research)
+Maintainer: hany
+Author: hany
+Section: Development

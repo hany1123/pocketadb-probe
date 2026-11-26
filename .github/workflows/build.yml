@@ -1,0 +1,65 @@
+name: Build PocketADBProbe
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          brew install ldid dpkg || true
+          git clone --depth 1 --recursive https://github.com/theos/theos.git "$HOME/theos"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+          echo "$HOME/theos/bin" >> "$GITHUB_PATH"
+          mkdir -p out
+
+      - name: Build
+        run: |
+          set -e
+          export THEOS="$HOME/theos"
+          make clean || true
+          make package FINALPACKAGE=1
+          cp .theos/obj/PocketADBProbe.dylib out/PocketADBProbe_raw.dylib
+
+      - name: Sanitize + sign + verify
+        run: |
+          set -e
+          python3 tools/strip_substrate.py out/PocketADBProbe_raw.dylib \
+             -o out/PocketADBProbe.dylib --id-name PocketADBProbe.dylib
+          ldid -S out/PocketADBProbe.dylib
+          python3 tools/strip_substrate.py out/PocketADBProbe.dylib --report
+          # 零越狱关键词：整文件字节扫描（strings 扫不到 Mach-O header 里的 load command）
+          python3 - <<'PY'
+          import struct, sys
+          p='out/PocketADBProbe.dylib'
+          d=open(p,'rb').read()
+          assert d[:4] in (b'\xcf\xfa\xed\xfe', b'\xca\xfe\xba\xbe'), 'not Mach-O'
+          # magic: thin arm64 only
+          assert d[:4]==b'\xcf\xfa\xed\xfe', 'expected thin arm64'
+          cputype=struct.unpack_from('<I',d,4)[0]
+          assert cputype==0x100000c, 'cputype != arm64'
+          banned=[b'CydiaSubstrate',b'MobileSubstrate',b'DynamicLibraries',
+                  b'MSHook',b'_logos_',b'libsubstrate']
+          for b in banned:
+              assert b not in d, 'banned token present: '+b.decode()
+          # install name 必须是 @rpath/
+          assert b'@rpath/PocketADBProbe.dylib' in d, 'install name not @rpath'
+          # 零 hook 符号断言
+          print('OK size=%d' % len(d))
+          PY
+          if nm -u out/PocketADBProbe.dylib | grep -qiE 'method_setImplementation|class_replaceMethod|class_addMethod|MSHook'; then
+            echo 'unexpected hook symbol'; exit 1
+          fi
+
+      - name: Upload dylib
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketADBProbe-dylib
+          path: out/PocketADBProbe.dylib
+          if-no-files-found: error
